@@ -2,7 +2,6 @@
 #include "src/SimpleTimer/SimpleTimer.h"
 #include <avr/wdt.h>
 
-
 #define SEGMENT_DATA PORTC
 
 #define LED_LEVEL3 0
@@ -11,7 +10,6 @@
 #define LED_MODE 2
 
 #define MUTE 1
-//#define MUTE 16
 #define MODE_ali 4
 #define POWER 11
 
@@ -32,7 +30,6 @@
 #define TEMP_PROBE_2 A3
 #define TEMP_PROBE_3 A4
 #define TEMP_PLATE A5
-//#define TEMP_TERMISTOR A6
 
 #define BUZZER 15
 
@@ -144,7 +141,7 @@ unsigned int deteksi_wire;
 float suhu_tampil;
 
 uint8_t suhu_set_hfnc;
-uint8_t flow_set_hfnc;
+uint8_t flow_set_hfnc = 0;
 uint8_t heating_wire;
 static char userInput[30];
 static unsigned char iX;
@@ -204,10 +201,6 @@ void error2_segment()
   x = 10;
   y = 11;
   z = 2;
-
-  // x = 8;
-  // y = 8;
-  // z = 8;
 }
 
 void error3_segment()
@@ -258,7 +251,7 @@ void tombol_silent()
   current_silent = digitalRead(MUTE);
 
   if (last_silent == HIGH && current_silent == LOW)
-  { // button power
+  { 
     val_silent++;
     silent_state = !silent_state;
   }
@@ -276,7 +269,7 @@ void button_mode()
     current_mode = digitalRead(MODE_ali);
 
     if (last_mode == HIGH && current_mode == LOW)
-    { // button power
+    {
       val_mode++;
       mode_state = !mode_state;
     }
@@ -378,7 +371,6 @@ void tampil_segment_x_error(uint8_t x, uint8_t y, uint8_t z)
 }
 void baca_adc_merah()
 { // y=(-8.7176 * x) + 857.1;
-
   // y = -0.2278x + 99.995
   avg_merah[i_merah] = analogRead(TEMP_PROBE_1);
   wholesome_merah = 0;
@@ -394,7 +386,6 @@ void baca_adc_putih()
 {
   // y=(-9.2667 * x) + 890.8;
   //  y = -10.255 x + 926.35
-
   avg_putih[i_putih] = analogRead(TEMP_PROBE_2);
   wholesome_putih = 0;
   for (uint8_t i = 0; i < 50; i++)
@@ -404,7 +395,6 @@ void baca_adc_putih()
 
   adc_putih = wholesome_putih / 50;
   suhu_putih = (adc_putih - 926.35) / -10.255;
-
   i_putih++;
   // suhu_segment_warna(suhu_putih);
   if (i_putih == 50)
@@ -448,6 +438,7 @@ void baca_adc_plate()
 }
 void mode_suhu(uint8_t suhu_warna, uint8_t set_point_suhu, uint8_t nilai_flow)
 {
+  wdt_reset();
   float suhu_lebih_nol_lima = set_point_suhu + 0.5;
   float suhu_kurang_nol_lima = set_point_suhu - 0.5; // kasih 15
   float suhu_kurang_satu = set_point_suhu - 1;       // kasih 25%
@@ -662,7 +653,7 @@ void button_silent()
 {
   if (kondisi_power == 1)
   {
-    tombol_silent();
+    
     switch (val_silent)
     {
     case 0:
@@ -699,6 +690,7 @@ void button_silent()
         digitalWrite(MOC_1, LOW);
         pwm_controller_heat(1000, 100);
         digitalWrite(LED_SILENCE, HIGH);
+        alarm = 4;
       }
       else
       {
@@ -752,6 +744,7 @@ void button_silent()
         pwm_controller_heat(1000, 100);
         digitalWrite(LED_SILENCE, LOW);
         digitalWrite(LED_ERROR_ALARM, LOW);
+        alarm = 4;
       }
       else
       {
@@ -766,7 +759,6 @@ void button_silent()
         }
         tampil_segment_x(x, y, z);
       }
-
       break;
     }
   }
@@ -839,6 +831,8 @@ void print_debug_output()
   Serial.println(suhu_tampil);
   Serial.print("suhu yang di set di hfnc= ");
   Serial.println(suhu_set_hfnc);
+  Serial.print("mode heating wire= ");
+  Serial.println(heating_wire);
 }
 void pinmode_setup()
 {
@@ -880,6 +874,7 @@ void send_json()
   xq = xq * 10.0;              // 1235.06
   int yq = (int)xq;            // 1235
   float zq = (float)yq / 10.0; // 123.5
+
   out["PW"] = kondisi_power;   // status humidifier on=1 / off=0
   out["T"] = zq;               // data temperature (float)
   out["TT"] = suhu_set_hfnc;   // display tidak menampilkan temperature. nilai temp data obsolete
@@ -946,7 +941,6 @@ void pwm_controller_heat(uint16_t interval_heat, uint16_t duty_cycle_heat)
     }
     else if ((millis() - pwm_millis_start_heat) == duty_cycle_heat)
     {
-
       digitalWrite(MOC_2, LOW);
     }
 
@@ -965,13 +959,6 @@ void tampil_loop()
       // suhu_segment_warna(suhu_putih);
       loop_number = 0;
     }
-
-    // moving average
-
-    // print_debug_output();
-    // send_json();
-    //  send_json();
-    //  deserial();
   }
   else
   {
@@ -1157,6 +1144,7 @@ void loop()
   // MODE TOMBOL, comment salah satu
   // scheduler.run();
   // button_power();
+  //tombol_silent();
   // val_power_humi();
   // baca_adc_putih();
   // baca_adc_merah();
@@ -1169,10 +1157,13 @@ void loop()
   scheduler.run();
   rcvCommand();
   val_power_humi();
-  button_silent();
+  //button_silent();
   baca_adc_putih();
   baca_adc_merah();
   baca_adc_hijau();
   baca_adc_plate();
   mode_suhu(suhu_putih, suhu_set_hfnc, flow_set_hfnc);
+  //mode_suhu(33, 31, 30);
+  wdt_reset();
+  //pwm_controller_heat(1000, 300);
 }
