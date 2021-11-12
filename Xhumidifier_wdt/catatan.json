@@ -1,0 +1,16 @@
+// untuk menyalakan humidifier
+{
+    "CMD": 1
+}
+// untuk mematikan humidifier
+{
+    "CMD": 2
+}
+// untuk SILENT humidifier
+{
+    "CMD": 6
+}
+// untuk UNMUTE
+{
+    "CMD": 7
+}
